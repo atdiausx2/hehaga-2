@@ -218,7 +218,10 @@ function parseExcelRows(values) {
 // async function get
 
 async function getGraphAccessToken() {
-  const { token } = await (await fetch("/api/GetToken")).json();
+
+  const base =  'http://localhost:7071'
+  const link_to_obtain_token = `${base}/api/GetToken`
+  const { token } = await (await fetch(link_to_obtain_token)).json();
   return token;
 }
 

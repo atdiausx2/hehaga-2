@@ -1,14 +1,16 @@
 {
   "name": "api",
   "version": "1.0.0",
-  "description": "",
+  "private": true,
+  "type": "commonjs",
+  "engines": { "node": "18.x" },
+  "main": "src/{index.js,functions/*.js}",
   "scripts": {
     "start": "func start",
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "@azure/functions": "^4.0.0"
-  },
-  "devDependencies": {},
-  "main": "src/{index.js,functions/*.js}"
+    "@azure/functions": "^4.4.0",
+    "axios": "^1.6.0"
+  }
 }

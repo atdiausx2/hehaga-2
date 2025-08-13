@@ -220,7 +220,8 @@ function parseExcelRows(values) {
 async function getGraphAccessToken() {
 
   const base =  'http://localhost:7071'
-  const link_to_obtain_token = `${base}/api/GetToken`
+  // const link_to_obtain_token = `${base}/api/GetToken`
+  const link_to_obtain_token = `/api/GetToken`;
   const { token } = await (await fetch(link_to_obtain_token)).json();
   return token;
 }
@@ -368,7 +369,7 @@ function regionOfDistrict(d){
             let adrese_origin = null ; 
             let aux_addendum_time = 0;
             // import.meta.env.VITE_API_BASE ??
-            const base =  'http://localhost:7071';
+            // const base =  'http://localhost:7071';
             if (uns.length){ 
               const latest = [...uns].sort((a, b) =>
                 a['Apsekošanas Laiks'] < b['Apsekošanas Laiks'] ? -1 : 1
@@ -384,8 +385,8 @@ function regionOfDistrict(d){
                aux_addendum_time = 0;
             }
 
-
-            const url_link_query = `${base}/api/GetDirections?r_origin=${encodeURIComponent(adrese_origin)}&r_destination=${encodeURIComponent(r.Adrese)}`;
+// const url_link_query = `${base}/api/GetDirections?r_origin=${encodeURIComponent(adrese_origin)}&r_destination=${encodeURIComponent(r.Adrese)}`;
+            const url_link_query = `/api/GetDirections?r_origin=${encodeURIComponent(adrese_origin)}&r_destination=${encodeURIComponent(r.Adrese)}`;
             const res = await fetch(url_link_query, { headers: { Accept: 'application/json' } });
 
             if (!res.ok) throw new Error(`GetDirections failed: ${res.status} ${await res.text()}`);

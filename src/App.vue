@@ -6,7 +6,14 @@
           <v-col cols="12" md="4">
             <v-select v-model="selectedDate" :items="dateOptions" label="Choose a date" outlined dense hide-details></v-select>
           </v-col>
+
+          <v-col cols="12" md="4">
+            <span>Ieplānotie reģioni: {{ scheduledRegionsArray.length ? scheduledRegionsArray.join(', ') : '—' }}</span>
+          </v-col>
+
         </v-row>
+
+
 
         <v-card class="mt-4" elevation="2">
           <v-card-text>
@@ -48,6 +55,8 @@ export default {
       d.setDate(d.getDate()+i);
       dateOptions.push(d.toISOString().slice(0,10));
     }
+
+    const scheduledRegionsArray = ref([]); 
     const rows = ref([]);
     const map = ref(null);
     const token = ref(null);
@@ -454,7 +463,7 @@ function regionOfDistrict(d){
       }
       console.log(`the established scheduled regions are ${[...scheduledRegions]}, and the length of the unscheduled addresses is ${unscheduled.length}`);
 
-
+    
       
       for(const r of unscheduled){
         r.district = await getDistrict(r.Adrese);
@@ -486,8 +495,6 @@ function regionOfDistrict(d){
       // console.log(`unscheduled counts by region: ${regionCounts}, and the top region by no. of addresses ${maxRegion}`);
       // const 
       if (!scheduledRegions.size){
-        // scheduledRegions.add(maxRegion);
-      //  scheduledRegions = [maxRegion]; 
         // console.log(' we are going first block');
          visitingRegions.add(maxRegion);
         //   new Set(maxRegion);--- returns array of symboldsl
@@ -497,6 +504,8 @@ function regionOfDistrict(d){
          visitingRegions = scheduledRegions;
       }
 
+      // const regions =[...visitingRegions];
+      scheduledRegionsArray.value = Array.from(visitingRegions);
       const GEOCODE_KEY = 'AIzaSyCDJdwMl5ijOs6Cq-lf9IBC5Muc7PHhJqY'; 
       console.log(`the established regions for visitation are , length ${visitingRegions.length}, are ${[...visitingRegions]}, and the length of the unscheduled addresses is ${unscheduled.length}`);
       for (const r of fullEntries.value){
@@ -629,7 +638,7 @@ function regionOfDistrict(d){
 
     watch(selectedDate, updateMarkers);
 
-    return { selectedDate, dateOptions };
+    return { selectedDate, dateOptions, scheduledRegionsArray  };
   }
   
 };

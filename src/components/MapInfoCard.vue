@@ -15,7 +15,12 @@
           <v-list-item title="Klients" :subtitle="r['Klienta vārds, uzvārds'] || ''" />
           <v-list-item title="Pārdevējs" :subtitle="r['Pārdevējs īpašnieks'] || ''" />
           <v-list-item title="Tel.nr" :subtitle="r['Tel.nr'] || ''" />
-          <v-list-item title="Iespējamais apsekošanas Laiks">
+          <v-list-item v-if="!r['Apsekošanas Laiks']" title="Iespējamais apsekošanas Laiks">
+            <template #subtitle>
+              <v-chip color="primary" size="small" label>{{ arrivalTime || '' }}</v-chip>
+            </template>
+          </v-list-item>
+          <v-list-item v-if="r && r['Apsekošanas Laiks']" title="Ieplānotais apsekošanas Laiks">
             <template #subtitle>
               <v-chip color="primary" size="small" label>{{ arrivalTime || '' }}</v-chip>
             </template>
@@ -25,8 +30,7 @@
       </v-card-text>
 
       <v-card-actions class="justify-end">
-        <v-btn color="primary" size="small" @click="$emit('confirm')">Apstiprināt</v-btn>
-        <v-btn variant="tonal" color="error" size="small" @click="$emit('remove')">Dzēst Objektu</v-btn>
+        <v-btn color="primary" size="small" v-if="!r['Apsekošanas Laiks']" @click="$emit('confirm')">Apstiprināt</v-btn>  
         <v-btn
     variant="tonal"
     color="error"
@@ -36,6 +40,7 @@
   >
     ATCELT ŠO LAIKU
   </v-btn>
+    <v-btn variant="tonal" color="error" size="small" @click="$emit('remove')">Dzēst Objektu</v-btn>
       </v-card-actions>
   
       <!-- <v-card-actions class="justify-end">

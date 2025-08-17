@@ -228,7 +228,7 @@ function restoreScheduledLabel(marker) {
 
 
   // helper (put it near the top of the file)
-function circleIcon(hex, offsetX = 3, offsetY = -2) {
+function circleIcon(hex, offsetX = 3, offsetY = -1) {
   return {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 10,                // size of the dot
@@ -375,6 +375,17 @@ function regionOfDistrict(d){
     if (!isNaN(n) && n >= 0 && n < 1) return dayFractionToTime(n); // handle "0.48" strings just in case
     return '';
   }
+
+  function toMinutes(v) {
+  if (v == null || v === '') return -Infinity;
+  if (typeof v === 'number') return Math.round(v * 24 * 60); // Excel fraction
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2}):([0-5]\d)$/);
+  if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const n = parseFloat(s);
+  if (!isNaN(n) && n >= 0 && n < 1) return Math.round(n * 24 * 60);
+  return -Infinity; // unknown format -> sort to bottom
+}
 
     function dayFractionToTime(fraction) {
     // Accept string or number
@@ -559,14 +570,18 @@ function regionOfDistrict(d){
             let start_time = '09:00';
             let adrese_origin = null ; 
             let aux_addendum_time = 0;
+            // console.log(`here are the times for visitations of the lines already selected ${[...uns['Apsekošanas Laiks']]}`)
             if (uns.length){ 
-              const latest = [...uns].sort((a, b) =>
-                a['Apsekošanas Laiks'] < b['Apsekošanas Laiks'] ? -1 : 1
-              ).pop();
+              // const latest = [...uns].sort((a, b) =>
+              //   a['Apsekošanas Laiks'] < b['Apsekošanas Laiks'] ? -1 : 1
+              // ).pop();
+              const latest = uns.reduce((a, b) =>
+              toMinutes(a['Apsekošanas Laiks']) > toMinutes(b['Apsekošanas Laiks']) ? a : b
+            );
               // const latest = uns.sort((a,b)=> a['Apsekošanas Laiks']<b['Apsekošanas Laiks']?-1:1).pop();
               adrese_origin = latest.Adrese;
               if (latest['Apsekošanas Laiks'] < 1){ 
-                start_time = dayFractionToTime(latest['Apsekošanas Laiks']);
+                start_time = toHHMM(latest['Apsekošanas Laiks']) || '09:00';
               } 
               else { 
                 start_time = latest['Apsekošanas Laiks'];

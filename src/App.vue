@@ -61,6 +61,8 @@ export default {
     let info = null;                 // google.maps.InfoWindow
     let infoContainer = null;        // <div> that hosts the Vue card
     let infoRoot = null;             // the detached Vue app instance
+    let infoCurrentMarker = null;
+    let infoCurrentWasScheduled = false;
     const infoState = reactive({ r: null, arrivalTime: '' }); // shared reactive state
 
     onMounted(async ()=>{
@@ -70,11 +72,11 @@ export default {
       console.log(`this is the file id value ${fileId.value}`)
   
       const usedRange = await getExcelUsedRange(token.value, fileId.value);
-      console.log(`this is the used range data, len: ${usedRange.length};  actual data: ${usedRange.values}`)
+      // console.log(`this is the used range data, len: ${usedRange.length};  actual data: ${usedRange.values}`)
       const parsedRows = parseExcelRows(usedRange.values);
-      console.log(`these are the parsed rows , len: ${parsedRows.length},  actual data: ${parsedRows}`);
+      // console.log(`these are the parsed rows , len: ${parsedRows.length},  actual data: ${parsedRows}`);
       rows.value = parsedRows.filter(r => r['Darbība'] === "Jāapseko");
-      console.log(`these are the appropriate rows about future visits, length: ${rows.value.length}, values:  ${rows.value}`)
+      // console.log(`these are the appropriate rows about future visits, length: ${rows.value.length}, values:  ${rows.value}`)
       // map.value = fileId;
 
       initMap(); 
@@ -86,21 +88,49 @@ export default {
           return h(MapInfoCard, {
             r: infoState.r,
             arrivalTime: infoState.arrivalTime,
-            onClose: () => info.close(),
+            onClose: () => { 
+              if (infoCurrentWasScheduled) restoreScheduledLabel(infoCurrentMarker);
+              info.close();
+            },
             async onConfirm() {
-
-              infoState.r['Apsekošanas Datums'] = selectedDate.value;
-              infoState.r['Apsekošanas Laiks'] = infoState.arrivalTime;
-              await writeToExcelRow(token.value, fileId.value, infoState.r._excelRow, infoState.r);
-              info.close(); 
-              updateMarkers();
+              try { 
+                infoState.r['Apsekošanas Datums'] = selectedDate.value;
+                infoState.r['Apsekošanas Laiks'] = infoState.arrivalTime;
+                // console.log(`writing to this ecxel row the excel row, ${infoState.r._excelRow}, info State ${infoState.r['Apsekošanas Datums']}, ${infoState.r['Apsekošanas Laiks']}`);
+                await writeToExcelRow(token.value, fileId.value, infoState.r._excelRow-3, infoState.r);
+              } catch (e) {
+                console.error('Failed to cancel time:', e);
+              } finally { 
+                info.close(); 
+                await updateMarkers();
+              }
+              // updateMarkers will recreate markers/labels anyway
               // use your parent-scoped helpers: selectedDate, writeToExcelRow, token, fileId, updateMarkers
             },
-            async onRemove() {
-            infoState.r['Darbība'] = 'Nav aktuāli';
-            await writeToExcelRow(token.value, fileId.value, infoState.r._excelRow, infoState.r);
+            async onCancelTime() {
+            try {
+            infoState.r['Apsekošanas Datums'] = '';
+            infoState.r['Apsekošanas Laiks'] = '';
+            await writeToExcelRow(token.value, fileId.value, infoState.r._excelRow - 3, infoState.r);
+          } catch (e) {
+            console.error('Failed to cancel time:', e);
+          } finally {
             info.close();
-            updateMarkers();
+            await updateMarkers(); // re-draw; marker becomes red
+            }},
+
+            async onRemove() {
+              try { 
+                infoState.r['Darbība'] = 'Nav aktuāli';
+                infoState.r['Apsekošanas Laiks'] = '';
+                infoState.r['Apsekošanas Datums'] = '';
+                await writeToExcelRow(token.value, fileId.value, infoState.r._excelRow-3, infoState.r);
+              } catch (e) {
+                console.error('Failed to cancel time:', e);
+              } finally { 
+                info.close();
+                await updateMarkers();
+              }
             }
           });
         }
@@ -119,22 +149,54 @@ export default {
       updateMarkers();
     });
 
-
-
-
-
-
 onBeforeUnmount(() => {
   info?.close();
   infoRoot?.unmount();
 });
 
+function isRowScheduledForSelected(row) {
+  let cell = row['Apsekošanas Datums'];
+  if (typeof cell === 'number') cell = excelDateToISO(cell); // -> "YYYY-MM-DD"
+  return (cell ?? '').toString().trim() === selectedDate.value;
+}
 
-function openInfoWindow(r, arrivalTime, marker) {
+function excelDateToISO(n) {
+  // Excel's day 1 is 1900-01-01 (with an off-by-1 for 1900 leap year bug)
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+  const d = new Date(excelEpoch.getTime() + n * 24 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
+function isoToExcelDate(isoString) {
+  // Accept either ISO string or Date
+  const d = typeof isoString === 'string' ? new Date(isoString) : new Date(isoString);
+
+  // Excel epoch: 1899-12-30 (because of the leap year bug in Excel's system)
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+
+  // Difference in days
+  const diffMs = d.getTime() - excelEpoch.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  return Math.floor(diffDays);
+}
+
+
+
+function openInfoWindow(r, arrivalTime, marker, wasScheduled) {
+  infoCurrentMarker = marker;
+  infoCurrentWasScheduled = !!wasScheduled;
   infoState.r = r;
   infoState.arrivalTime = arrivalTime;
   info.setContent(infoContainer);
   info.open(map.value, marker);
+
+    // restore the tiny label if user clicks the native “X”
+    google.maps.event.addListenerOnce(info, 'closeclick', () => {
+    if (infoCurrentWasScheduled) restoreScheduledLabel(infoCurrentMarker);
+    infoCurrentMarker = null;
+    infoCurrentWasScheduled = false;
+  });
 }
 
   function initMap(){
@@ -147,8 +209,26 @@ function openInfoWindow(r, arrivalTime, marker) {
  
   }
 
+function applyScheduledLabel(marker, timeText) {
+  marker.set('schedLabel', timeText); // store for later
+  marker.setLabel({
+    text: timeText,
+    color: '#202124',
+    fontSize: '12px',
+    fontWeight: '600'
+  });
+}
+
+function restoreScheduledLabel(marker) {
+  const t = marker.get('schedLabel');
+  if (t) applyScheduledLabel(marker, t);
+}
+
+
+
+
   // helper (put it near the top of the file)
-function circleIcon(hex, offsetX = 14, offsetY = 0) {
+function circleIcon(hex, offsetX = 3, offsetY = -2) {
   return {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 10,                // size of the dot
@@ -173,21 +253,33 @@ labelOrigin: new google.maps.Point(offsetX, offsetY)
 
 async function writeToExcelRow(token, fileId, rowNum, updatedObj) {
   const sheetName = "Siltumsūkņi";
-
   // Ensure column order matches the original file
   const orderedHeaders = [
+    // a b c d e f g h i j k l m n
     "Pieteikšanas Datums",
-    "Klienta vārds, uzvārds",
     "Pārdevējs īpašnieks",
-    "Tel.nr",
-    "Darbība",
+    "Klienta vārds, uzvārds",
     "Adrese",
+    "Tel.nr",
+    "Komentārs, kas nepieciešams klientam",
+    "Darbība",
+    "Plānotais Apsekošanas Datums",
+    "Pārdevēja Komentārs , par klienta iespējamajiem laikiem",
+    "Pārdošanas menedžera Komentārs",
     "Apsekošanas Datums",
+    "Darbība pēc apsekošanas",
+    "Komentārs, info priekš pārdevēja pēc apsekošanas",
     "Apsekošanas Laiks"
+    // 14 fields
   ];
 
   const rowValues = orderedHeaders.map(h => updatedObj[h] ?? "");
-  const rangeAddress = `A${rowNum}:H${rowNum}`; // match column count to headers
+
+  // const rangeAddress = `A${rowNum}:H${rowNum}`; // match column count to headers
+  const rangeAddress = `A${rowNum}:N${rowNum}`; 
+  // match column count to headers
+
+  console.log(`the values to write in ${JSON.stringify(rowValues)}`);
 
   await axios.patch(
     `https://graph.microsoft.com/v1.0/users/danat@sungo.lv/drive/items/${fileId}/workbook/worksheets('${sheetName}')/range(address='${rangeAddress}')`,
@@ -273,6 +365,32 @@ function regionOfDistrict(d){
     }
 
 
+  function toHHMM(value) {
+    if (value == null || value === '') return '';
+    if (typeof value === 'number') return dayFractionToTime(value); // Excel fraction -> "HH:MM"
+    const s = String(value).trim();
+    const m = s.match(/^(\d{1,2}):([0-5]\d)$/); // "H:MM" or "HH:MM"
+    if (m) return m[1].padStart(2, '0') + ':' + m[2];
+    const n = parseFloat(s);
+    if (!isNaN(n) && n >= 0 && n < 1) return dayFractionToTime(n); // handle "0.48" strings just in case
+    return '';
+  }
+
+    function dayFractionToTime(fraction) {
+    // Accept string or number
+    const num = parseFloat(fraction);
+    if (isNaN(num)) return "";
+
+    // Total minutes in the day
+    const totalMinutes = Math.round(num * 24 * 60);
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    // Format HH:MM
+    return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
+  }
+
 
   async function updateMarkers(){
       markers.forEach(m=> m.setMap(null));
@@ -285,54 +403,115 @@ function regionOfDistrict(d){
       const addr = r['Tel.nr'];
         return addr != null && String(addr).trim() !== '';
       });
+
+      const datePerceived = new Date(selectedDate.value);
+      const day = String(datePerceived.getDate()).padStart(2, '0');
+      const month = String(datePerceived.getMonth() + 1).padStart(2, '0'); // months are 0-based
+      const year = datePerceived.getFullYear();
+      const DateFormatted = `${day}.${month}.${year}`;
       // const totalFullEntries = fullEntries.length;
-      // console.log(`number of rows in start ${totalFullEntries}`); 
-      const scheduled = fullEntries.value.filter(r => r['Apsekošanas Datums'] === selectedDate.value);
+      console.log(`formatted date to be filtered for ${DateFormatted}`); 
+      // const scheduled = fullEntries.value.filter(r => r['Apsekošanas Datums'] === DateFormatted);
+    //   const scheduled = fullEntries.value.filter(r => {
+    //   const cell = r['Apsekošanas Datums'];
+    //   const cellStr = (cell ?? '').toString().trim();
+    //   return cellStr === DateFormatted;
+    // });
+     const scheduled = fullEntries.value.filter(isRowScheduledForSelected);
+
+      // const scheduled = fullEntries.value.filter(r => {
+      //   let cell = r['Apsekošanas Datums'];
+      //   if (typeof cell === 'number') {
+      //     cell = excelDateToISO(cell);
+      //   }
+      //   const cellStr = (cell ?? '').toString().trim();
+      //   return cellStr === selectedDate.value;
+      // });
+      // const scheduled =  fullEntries.value.filter(r => r['Apsekošanas Laiks']);
+      // const scheduled =  fullEntries.value.filter(r => r['Apsekošanas Datums']);
       console.log(`the scheduled visits are sik: ${scheduled.length}`);
       const unscheduled = fullEntries.value.filter(r => !r['Apsekošanas Datums']);
       console.log(`the unscheduled visits are sik: ${unscheduled.length}`);
-      const scheduledRegions = new Set( );
-      // const infoRoot
-      // for(const r of )
+      const scheduledRegions = new Set();
 
       for(const r of scheduled){
         r.district = await getDistrict(r.Adrese);
-        // console.log(`the district has been established from the address: ${r.district}`);
+        // console.log(`the district has been established from the address: ${r.district}, apsek. date: ${r['Apsekošanas Datums']}`);
         r.region = regionOfDistrict(r.district);
         // console.log(`the region has been established from the address: ${r.region}`);
         if (r.region) scheduledRegions.add(r.region);
       }
-      console.log(`the established scheduled regions are ${[...scheduledRegions]}, and the length of the unscheduled is ${unscheduled.length}`);
+      console.log(`the established scheduled regions are ${[...scheduledRegions]}, and the length of the unscheduled addresses is ${unscheduled.length}`);
+
+
       
       for(const r of unscheduled){
         r.district = await getDistrict(r.Adrese);
         r.region = regionOfDistrict(r.district);
       }
 
+      // 👉 build counts by region
+      const regionCounts = {
+        Kurzeme: 0,
+        "Pierīga": 0,
+        Vidzeme: 0,
+        Latgale: 0,
+      };
+
+      for (const r of unscheduled) {
+        regionCounts[r.region]++;
+    }
+    let maxRegion = null;
+    let maxCount = -1;
+
+    for (const [region, count] of Object.entries(regionCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        maxRegion = region;
+      }
+    }
+
+      var visitingRegions = new Set();
+      // console.log(`unscheduled counts by region: ${regionCounts}, and the top region by no. of addresses ${maxRegion}`);
+      // const 
+      if (!scheduledRegions.size){
+        // scheduledRegions.add(maxRegion);
+      //  scheduledRegions = [maxRegion]; 
+        // console.log(' we are going first block');
+         visitingRegions.add(maxRegion);
+        //   new Set(maxRegion);--- returns array of symboldsl
+      }
+      else {
+        // console.log('we are going second block');
+         visitingRegions = scheduledRegions;
+      }
+
       const GEOCODE_KEY = 'AIzaSyCDJdwMl5ijOs6Cq-lf9IBC5Muc7PHhJqY'; 
-      console.log(`querying the geocode`);
+      console.log(`the established regions for visitation are , length ${visitingRegions.length}, are ${[...visitingRegions]}, and the length of the unscheduled addresses is ${unscheduled.length}`);
       for (const r of fullEntries.value){
+
+        
+        // const isScheduledToday = r['Apsekošanas Datums'] === selectedDate.value;
+        // console.log(`the selected value ${DateFormatted}`);
+        // const isScheduledToday = excelDateToISO(r['Apsekošanas Datums']) === selectedDate.value;
+        const isScheduledToday = isRowScheduledForSelected(r);
+        // r['Apsekošanas Datums'] === isoToExcelDate(selectedDate.value);
+
+        // console.log(`is scheduled today? ${isScheduledToday} `);
         if (!r.region) continue;
 
         const coords = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
           
           params:{  address: r.Adrese, key: GEOCODE_KEY }
         });
+        
         const loc = coords.data.results[0]?.geometry.location || null;
         if (!loc) continue;
-        const isScheduledToday = r['Apsekošanas Datums'] === selectedDate.value;
-        // console.log(`is scheduled today? ${isScheduledToday} `);
+        // console.log(`the selected value ${selectedDate.value}`)
         var withinScheduledRegion = null;
-        if (scheduledRegions.size !== 0){ 
-          withinScheduledRegion = !isScheduledToday && scheduledRegions.has(r.region);
-          // console.log(`within region? ${withinScheduledRegion} , ${r.region}`);
-        } else { 
-          // console.log('there are none scheduled regions so far');
-          withinScheduledRegion = true;
-          scheduledRegions.add(r.region);
-        }
-   
-        // console.log(`the new regions list ${[...scheduledRegions]}`);
+        withinScheduledRegion = !isScheduledToday && visitingRegions.has(r.region);
+        // console.log(`within region? ${withinScheduledRegion} , ${r.Adrese}, region ${r.region}, scheduled date ${r['Apsekošanas Datums']}, is scheduled today ${isScheduledToday}`);
+        
 
         const color = isScheduledToday ? 'green' : (withinScheduledRegion ? 'red' : null);
 
@@ -349,6 +528,13 @@ function regionOfDistrict(d){
         zIndex: isScheduledToday ? 2 : 1  // optional: scheduled on top
       });
 
+      // ✅ show reduced popup (time label) for scheduled markers immediately
+      if (isScheduledToday) {
+        // const t = (dayFractionToTime(r['Apsekošanas Laiks']) || '').toString().slice(0,5);
+        // applyScheduledLabel(m, t);
+        applyScheduledLabel(m, toHHMM(r['Apsekošanas Laiks']));
+      }
+
         // const m = new google.maps.Marker({
         //   position: loc,
         //   map: map.value,
@@ -360,23 +546,33 @@ function regionOfDistrict(d){
           m.addListener('click', async ()=>{
           let arrivalTime = r['Apsekošanas Laiks'];
 
-          if(!isScheduledToday){
+          if (!isScheduledToday) {
             // const uns = fullEntries.value.filter(q => (q.Adrese === r.Adrese)&& q['Apsekošanas Laiks']);
             // const uns = fullEntries.value.filter(q => q['Apsekošanas Laiks']);
-            const uns = fullEntries.value.filter(q => q['Apsekošanas Laiks']);
-            // console.log(`here is the size of the full enrties array: ${uns.length}`);
+
+            // const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+            // && timePattern.test(q['Apsekošanas Laiks']) &&
+            // const uns = fullEntries.value.filter(q => (q['Apsekošanas Laiks']) && (q['Apsekošanas Laiks'] !== 'Aizpilda Apsekotājs'));
+            //  q['Apsekošanas Datums'] === isoToExcelDate(selectedDate.value)
+            const uns = fullEntries.value.filter(q => (q['Apsekošanas Laiks']) && isRowScheduledForSelected(q));
+            console.log(`here is the size of the full enrties array: ${uns.length}`);
             let start_time = '09:00';
             let adrese_origin = null ; 
             let aux_addendum_time = 0;
-            // import.meta.env.VITE_API_BASE ??
-            // const base =  'http://localhost:7071';
             if (uns.length){ 
               const latest = [...uns].sort((a, b) =>
                 a['Apsekošanas Laiks'] < b['Apsekošanas Laiks'] ? -1 : 1
               ).pop();
               // const latest = uns.sort((a,b)=> a['Apsekošanas Laiks']<b['Apsekošanas Laiks']?-1:1).pop();
               adrese_origin = latest.Adrese;
-              start_time = latest['Apsekošanas Laiks'];
+              if (latest['Apsekošanas Laiks'] < 1){ 
+                start_time = dayFractionToTime(latest['Apsekošanas Laiks']);
+              } 
+              else { 
+                start_time = latest['Apsekošanas Laiks'];
+              }
+
+              // start_time = latest['Apsekošanas Laiks'];
               aux_addendum_time = 60;
             }
             else { 
@@ -392,59 +588,23 @@ function regionOfDistrict(d){
             if (!res.ok) throw new Error(`GetDirections failed: ${res.status} ${await res.text()}`);
 
             const { laiks: driveMin } = await res.json();
-            // console.log(`now queried the address`);
-
-            const est = new Date(`${selectedDate.value}T${start_time}`);
-
+            
+            const local_time_string = `${selectedDate.value}T${start_time}`;
+            console.log(`the local time string is ${local_time_string}`);
+            const est = new Date(local_time_string);
+            console.log(`now obtinaed the time we can could ${est}`);
             
             est.setMinutes(est.getMinutes() + driveMin*1.1 + aux_addendum_time);
             arrivalTime = est.toTimeString().slice(0,5);
+            
           }
           else {
-            arrivalTime = r['Apsekošanas Laiks'];
+            // arrivalTime = r['Apsekošanas Laiks'];
+            arrivalTime = dayFractionToTime(r['Apsekošanas Laiks']);
+            // console.log(`the apsekosana laiks ${r['Apsekošanas Laiks']} is ${arrivalTime}`)
           }
-          openInfoWindow(r, arrivalTime || '09:00', m)
+          openInfoWindow(r, arrivalTime || '09:00', m, isScheduledToday);
 
-
-          // const content = `
-          //   <div>
-          //     <button style="float:right" onclick="this.parentNode.parentNode.close()">×</button>
-          //     <p>Pieteikšanas Datums: ${r['Pieteikšanas Datums']}</p>
-          //     <p>Klients: ${r['Klienta vārds, uzvārds']}</p>
-          //     <p>Pārdevējs: ${r['Pārdevējs īpašnieks']}</p>
-          //     <p>Tel.nr: ${r['Tel.nr']}</p>
-          //     <p>Apsekošanas Laiks: ${arrivalTime}</p>
-          //     <p>Klienta adrese: ${r.Adrese}
-          //     <button id="confirm">Confirm</button>
-          //     <button id="remove">Remove</button>
-          //   </div>`;
-          // info.setContent(content);
-          // info.open(map.value, m);
-
-          // window.setTimeout(()=>{
-          //   document.getElementById('confirm').onclick = async ()=>{
-          //     r["Apsekošanas Datums"] = selectedDate.value;
-          //     r["Apsekošanas Laiks"] = arrivalTime;
-              // row["Apsekošanas Datums"] = selectedDate.value;
-              // row["Apsekošanas Laiks"] = arrivalTime;
-        //       await writeToExcelRow(token, fileId, r._excelRow, r);
-        //       info.close();
-        //       updateMarkers(); // refresh view if needed
-        //       // r['Apsekošanas Datums'] = selectedDate.value;
-        //       // r['Apsekošanas Laiks'] = arrivalTime;
-        //       // rewrite Excel row back to sheet & save file
-        //     };
-        //     document.getElementById('remove').onclick = async ()=>{
-        //       r["Darbība"] = "Nav aktuāli";
-        //       await writeToExcelRow(token, fileId, r._excelRow, r);
-        //       info.close();
-        //       updateMarkers(); 
-        //       // r.Darbība = 'Nav aktuāli';
-        //       // rewrite Excel and save
-        //     };
-        //   },
-        //   100
-        // );
         });
         
         // console.log(`marker is appended logically to the list of markers `);

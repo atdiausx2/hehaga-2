@@ -23,11 +23,28 @@
           <v-list-item title="Klienta adrese" :subtitle="r.Adrese || ''" />
         </v-list>
       </v-card-text>
-  
+
       <v-card-actions class="justify-end">
-        <v-btn color="primary" @click="$emit('confirm')">Apstiprināt</v-btn>
-        <v-btn variant="tonal" color="primary" @click="$emit('remove')">Atmest</v-btn>
+        <v-btn color="primary" size="small" @click="$emit('confirm')">Apstiprināt</v-btn>
+        <v-btn variant="tonal" color="error" size="small" @click="$emit('remove')">Dzēst Objektu</v-btn>
+        <v-btn
+    variant="tonal"
+    color="error"
+    size="small"
+    v-if="r && r['Apsekošanas Laiks']"
+    @click="$emit('cancelTime')"
+  >
+    ATCELT ŠO LAIKU
+  </v-btn>
       </v-card-actions>
+  
+      <!-- <v-card-actions class="justify-end">
+       
+      </v-card-actions>
+
+      <v-card-actions v-if="r && r['Apsekošanas Laiks']" class="justify-end">
+ 
+</v-card-actions> -->
     </v-card>
 
       <!-- optional: tiny placeholder while r is null -->
@@ -44,7 +61,7 @@ export default {
     r: { type: Object,  default: null},
     arrivalTime: { type: String, default: ''}
   },
-  emits: ['close', 'confirm', 'remove']
+  emits: ['close', 'confirm', 'remove', 'cancelTime']
 };
 
 

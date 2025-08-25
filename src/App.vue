@@ -116,6 +116,12 @@ export default {
               // updateMarkers will recreate markers/labels anyway
               // use your parent-scoped helpers: selectedDate, writeToExcelRow, token, fileId, updateMarkers
             },
+            async onSetTime(val) {
+            infoState.arrivalTime = val;       // preview only
+            // applyScheduledLabel(infoCurrentMarker, val); // optional preview
+          },
+
+
             async onCancelTime() {
             try {
             infoState.r['Apsekošanas Datums'] = '';

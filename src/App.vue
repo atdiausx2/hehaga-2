@@ -522,7 +522,7 @@ function regionOfDistrict(d){
 
         const coords = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
           
-          params:{  address: r.Adrese, key: GEOCODE_KEY }
+          params: {  address: r.Adrese, key: GEOCODE_KEY }
         });
         
         const loc = coords.data.results[0]?.geometry.location || null;

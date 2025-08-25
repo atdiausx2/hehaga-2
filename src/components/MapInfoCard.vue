@@ -1,13 +1,47 @@
 <template>
     <v-card v-if="r" rounded="xl" elevation="6" max-width="380" class="info-card">
       <v-card-title class="d-flex align-center justify-space-between">
-        <span>Vizītes dati</span>
+        <!-- <span>Vizītes dati</span> -->
+        <span class="header-title">Vizītes dati</span>
+        <v-spacer />
+        <div class="header-actions">
+        <v-btn
+        color="primary"
+        size="small"
+        v-if="!r['Apsekošanas Laiks']"
+        @click="$emit('confirm')"
+      >
+        Apstiprināt
+      </v-btn>
+
+      <v-btn
+        variant="tonal"
+        color="error"
+        size="small"
+        v-if="r && r['Apsekošanas Laiks']"
+        @click="$emit('cancelTime')"
+      >
+        ATCELT ŠO LAIKU
+      </v-btn>
+
+      <v-btn
+        variant="tonal"
+        color="error"
+        size="small"
+        @click="$emit('remove')"
+      >
+        Dzēst Objektu
+      </v-btn>
+    </div>
+
+
       </v-card-title>
   
       <v-divider />
   
       <v-card-text class="pt-2">
         <v-list density="compact">
+          <v-row dense> 
           <v-col cols="6">
       <div class="field">
         <div class="field-title">Klients</div>
@@ -21,34 +55,66 @@
       </div>
     </v-col>
 
-    <v-col cols="6">
+  <v-col cols="6">
+  <div class="field">
+    <div class="field-title">Tel.nr</div>
+    <button
+      class="field-sub copyable"
+      type="button"
+      :aria-label="`Nokopēt tālruņa numuru ${r['Tel.nr'] || ''}`"
+      @click="copyValue(r['Tel.nr'] || '', 'Tālruņa numurs')"
+    >
+      <span class="truncate-wrap">{{ r['Tel.nr'] || '' }}</span>
+      <v-icon size="14" icon="mdi-content-copy" class="ml-1" />
+    </button>
+  </div>
+</v-col>
+
+
+    <!-- <v-col cols="6">
       <div class="field">
         <div class="field-title">Tel.nr</div>
         <div class="field-sub">{{ r['Tel.nr'] || '' }}</div>
       </div>
-    </v-col>
+    </v-col> -->
     <v-col cols="6">
       <div class="field">
         <div class="field-title">Produkta tips:</div>
         <div class="field-sub">{{ r['Komentārs, kas nepieciešams klientam'] || '' }}</div>
       </div>
     </v-col>
+          </v-row>
           <!-- <v-list-item title="Klients" :subtitle="r['Klienta vārds, uzvārds'] || ''" />
           <v-list-item title="Pārdevējs" :subtitle="r['Pārdevējs īpašnieks'] || ''" />
           <v-list-item title="Tel.nr" :subtitle="r['Tel.nr'] || ''" />
           <v-list-item title="Produkta tips:" :subtitle="r['Komentārs, kas nepieciešams klientam'] || ''" /> -->
-          <v-list-item class="clamp" style="--clamp: 6"                v-if="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']" title="Komentārs:"
-  :subtitle="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']">
-
-            <template #subtitle>
+          <!-- class="clamp" style="--clamp: 6"  -->
+          <v-list-item v-if="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']" title="Komentārs:">
+<!--   :subtitle="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']" -->
+              <template #subtitle>
+                <v-textarea
+                                  v-model="commentDraft"
+                                  variant="outlined"
+                                  density="compact"
+                                  auto-grow
+                                  rows="2"
+                                  max-rows="8"
+                                  hide-details
+                                  placeholder="Komentārs par klienta iespējām un laikiem...."
+                                  class="mt-1"
+                                  @update:modelValue="emitSaveComment"
+                                />
+              </template>
+            <!-- <template #subtitle>
               <div :class="['comment-subtitle', { expanded: showFullComment }]">
                 {{ r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem'] }}
               </div>
-            </template>
+            </template> -->
 
           </v-list-item>
 
-
+ <!-- label="Stundas" -->
+ <!--    label="Minūtes" -->
           <v-list-item
             :title="r && r['Apsekošanas Laiks'] ? 'Ieplānotais apsekošanas Laiks' : 'Iespējamais apsekošanas Laiks'"
           >
@@ -57,17 +123,18 @@
                 <v-select
                   v-model="hour"
                   :items="hours"
-                  label="Stundas"
+                 
                   density="compact"
                   hide-details
                   variant="outlined"
                   class="time-select"
+                  @update:modelValue="emitIfComplete"
                 />
                 <span class="time-colon">:</span>
                 <v-select
                   v-model="minute"
                   :items="minutes"
-                  label="Minūtes"
+               
                   density="compact"
                   hide-details
                   variant="outlined"
@@ -102,12 +169,28 @@
               <v-chip color="primary" size="small" label>{{ arrivalTime || '' }}</v-chip>
             </template>
           </v-list-item> -->
-          <v-list-item title="Klienta adrese" :subtitle="r.Adrese || ''" />
+
+          <div class="field">
+            <div class="field-title">Adrese</div>
+            <button
+              class="field-sub copyable"
+              type="button"
+              :aria-label="`Nokopēt adresi ${r.Adrese || ''}`"
+              @click="copyValue(r.Adrese || '', 'Adrese')"
+            >
+              <span class="truncate-wrap">{{ r.Adrese || '' }}</span>
+              <v-icon size="14" icon="mdi-content-copy" class="ml-1" />
+            </button>
+          </div>
+          <v-snackbar v-model="copySnack" timeout="1600" location="top" color="success">
+            {{ copySnackText }}
+          </v-snackbar>
+          <!-- <v-list-item title="Klienta adrese" :subtitle="r.Adrese || ''" /> -->
         </v-list>
       </v-card-text>
 
       <v-divider />
-      <v-card-actions class="justify-end">
+      <!-- <v-card-actions class="justify-end">
 
         <v-btn color="primary" size="small" v-if="!r['Apsekošanas Laiks']" @click="$emit('confirm')">Apstiprināt</v-btn>  
         <v-btn
@@ -120,7 +203,7 @@
             ATCELT ŠO LAIKU
           </v-btn>
           <v-btn variant="tonal" color="error" size="small" @click="$emit('remove')">Dzēst Objektu</v-btn>
-     </v-card-actions>
+     </v-card-actions> -->
     </v-card>
 
             <!-- optional: tiny placeholder while r is null -->
@@ -137,10 +220,14 @@ export default {
     r: { type: Object,  default: null},
     arrivalTime: { type: String, default: ''}
   },
-  emits: ['close', 'confirm', 'remove', 'cancelTime', 'setTime'], 
+  emits: ['close', 'confirm', 'remove', 'cancelTime', 'setTime', 'saveComment'], 
   data() {
     return { 
       showFullComment: false,
+      commentDraft: '',
+      commentSaving: false,
+      copySnack: false , 
+      copySnackText: false, 
       hour: null,
       minute: null,
       hours: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')),
@@ -154,6 +241,13 @@ export default {
   },
 
   watch: {
+
+    r: {
+      immediate: true,
+      handler(val) {
+        this.commentDraft = val?.['Pārdevēja Komentārs , par klienta iespējamajiem laikiem'] || '';
+      }
+    },
     // If parent recomputes arrivalTime, reflect it here
     arrivalTime: {
       immediate: true,
@@ -176,6 +270,30 @@ export default {
   },
 
   methods: {
+    async copyValue(text, label) {
+      const value = String(text ?? '');
+      if (!value) return;
+
+      try {
+        await navigator.clipboard.writeText(value);
+        this.copySnackText = `${label} nokopēts`;
+      } catch (e) {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        // try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+        this.copySnackText = `${label} nokopēts`;
+      }
+      this.copySnack = true;
+    },
+
+
     parseTime(s) {
       if (!s || typeof s !== 'string') return null;
       const m = s.match(/^(\d{1,2}):(\d{2})$/);
@@ -192,7 +310,16 @@ export default {
       if (this.hour != null && this.minute != null) {
         this.$emit('setTime', `${this.hour}:${this.minute}`);
       }
-    }
+    }, 
+    emitSaveComment(val) {
+      this.commentDraft = val;
+      this.$emit('saveComment', val);
+      // this.commentSaving = true;
+      // // emit up; parent will persist and can optionally resolve a promise
+      // const maybePromise = this.$emit('saveComment', this.commentDraft);
+      // // allow parent to be sync or async; stop the spinner either way
+      // Promise.resolve(maybePromise).finally(() => (this.commentSaving = false));
+    },
 
 
     // confirmUserTime() {
@@ -211,6 +338,29 @@ export default {
 
   <style scoped>
 /*   min-height: calc(1.25rem * 4);        /* reserve 4 lines when present */ 
+
+.card-header {
+  /* keep it tidy and prevent wrap jitter */
+  gap: 8px;
+  padding-inline: 16px;
+}
+
+.header-title {
+  font-weight: 600;
+}
+
+
+.header-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;      /* <-- never stack */
+  white-space: nowrap; 
+  /* flex-wrap: wrap;       allows wrapping on very narrow widths */
+}
+
+
 .comment-subtitle {
   line-height: 1.25rem;
 
@@ -236,6 +386,23 @@ export default {
   font-size: 0.8rem;
   line-height: 1.2;
   word-break: break-word;
+}
+
+.copyable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+}
+.copyable:focus-visible {
+  outline: 2px solid var(--v-theme-primary);
+  outline-offset: 2px;
 }
 
 

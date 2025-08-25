@@ -105,6 +105,7 @@ export default {
               try { 
                 infoState.r['Apsekošanas Datums'] = selectedDate.value;
                 infoState.r['Apsekošanas Laiks'] = infoState.arrivalTime;
+                infoState.r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem'] = infoState.setComment;
                 // console.log(`writing to this ecxel row the excel row, ${infoState.r._excelRow}, info State ${infoState.r['Apsekošanas Datums']}, ${infoState.r['Apsekošanas Laiks']}`);
                 await writeToExcelRow(token.value, fileId.value, infoState.r._excelRow-3, infoState.r);
               } catch (e) {
@@ -120,6 +121,9 @@ export default {
             infoState.arrivalTime = val;       // preview only
             // applyScheduledLabel(infoCurrentMarker, val); // optional preview
           },
+            async onSaveComment(text){
+              infoState.setComment = text;
+            },
 
 
             async onCancelTime() {
@@ -535,11 +539,13 @@ function regionOfDistrict(d){
         if (!loc) continue;
         // console.log(`the selected value ${selectedDate.value}`)
         var withinScheduledRegion = null;
-        withinScheduledRegion = !isScheduledToday && visitingRegions.has(r.region);
+        // withinScheduledRegion = !isScheduledToday && visitingRegions.has(r.region);
+
         // console.log(`within region? ${withinScheduledRegion} , ${r.Adrese}, region ${r.region}, scheduled date ${r['Apsekošanas Datums']}, is scheduled today ${isScheduledToday}`);
         
 
-        const color = isScheduledToday ? 'green' : (withinScheduledRegion ? 'red' : null);
+        const color = isScheduledToday ? 'green' : 'red';
+        //  (withinScheduledRegion ? 'red' : null);
 
         if (!color) continue;
 

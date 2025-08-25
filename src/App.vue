@@ -2,16 +2,16 @@
   <v-app>
     <v-main>
       <v-container>
-        <v-row align="center" justify="space-between">
+         <v-row align="center" justify="space-between">
           <v-col cols="12" md="4">
             <v-select v-model="selectedDate" :items="dateOptions" label="Choose a date" outlined dense hide-details></v-select>
           </v-col>
 
-          <v-col cols="12" md="4">
+          <!-- <v-col cols="12" md="4">
             <span>Ieplānotie reģioni: {{ scheduledRegionsArray.length ? scheduledRegionsArray.join(', ') : '—' }}</span>
-          </v-col>
+          </v-col> -->
 
-        </v-row>
+        </v-row> 
 
 
 
@@ -176,7 +176,24 @@ onBeforeUnmount(() => {
 function isRowScheduledForSelected(row) {
   let cell = row['Apsekošanas Datums'];
   if (typeof cell === 'number') cell = excelDateToISO(cell); // -> "YYYY-MM-DD"
-  return (cell ?? '').toString().trim() === selectedDate.value;
+  return cell;
+  // (cell ?? '').toString().trim() === selectedDate.value;
+}
+
+function isoToShortDDMM(iso) {
+  // iso: "YYYY-MM-DD"
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}`;
+}
+
+function shortDDMMFromRowDate(rowDateVal) {
+  if (typeof rowDateVal === 'number') return isoToShortDDMM(excelDateToISO(rowDateVal));
+  if (typeof rowDateVal === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rowDateVal)) return isoToShortDDMM(rowDateVal);
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(rowDateVal)) return rowDateVal.slice(0, 5); // "DD.MM"
+  }
+  return ''; // unknown → let caller fall back
 }
 
 function excelDateToISO(n) {
@@ -247,7 +264,7 @@ function restoreScheduledLabel(marker) {
 
 
   // helper (put it near the top of the file)
-function circleIcon(hex, offsetX = 3, offsetY = -1) {
+function circleIcon(hex, offsetX = 4, offsetY = -1) {
   return {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 10,                // size of the dot
@@ -564,7 +581,15 @@ function regionOfDistrict(d){
       if (isScheduledToday) {
         // const t = (dayFractionToTime(r['Apsekošanas Laiks']) || '').toString().slice(0,5);
         // applyScheduledLabel(m, t);
-        applyScheduledLabel(m, toHHMM(r['Apsekošanas Laiks']));
+        // applyScheduledLabel(m, toHHMM(r['Apsekošanas Laiks']));
+
+        const time = toHHMM(r['Apsekošanas Laiks']);
+
+        if (time) {
+            // Prefer the row’s own date if present; otherwise use the selected date
+            const ddmm = shortDDMMFromRowDate(r['Apsekošanas Datums']) || isoToShortDDMM(selectedDate.value);
+            applyScheduledLabel(m, `${ddmm} ${time}`, '10px'); // smaller + date prefix
+          }
       }
 
         // const m = new google.maps.Marker({

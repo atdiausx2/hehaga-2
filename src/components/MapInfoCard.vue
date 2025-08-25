@@ -40,14 +40,33 @@
       <v-divider />
   
       <v-card-text class="pt-2">
-        <v-list density="compact">
-          <v-row dense> 
-          <v-col cols="6">
+
+
+    <v-list density="compact">
+      <v-row dense> 
+      <!-- <v-col cols="6">
       <div class="field">
         <div class="field-title">Klients</div>
         <div class="field-sub">{{ r['Klienta vārds, uzvārds'] || '' }}</div>
       </div>
-    </v-col>
+    </v-col> -->
+<v-col cols="6">
+  <div class="field">
+    <div class="field-title">Klients</div>
+    <button
+      class="field-sub copyable"
+      type="button"
+      :aria-label="`Nokopēt klienta vārdu ${r['Klienta vārds, uzvārds'] || ''}`"
+      @click="copyValue(r['Klienta vārds, uzvārds'] || '', 'Klienta vārds')"
+    >
+      <span class="truncate-wrap">{{ r['Klienta vārds, uzvārds'] || '' }}</span>
+      <v-icon size="14" icon="mdi-content-copy" class="ml-1" />
+    </button>
+    </div>
+  </v-col>
+
+
+
     <v-col cols="6">
       <div class="field">
         <div class="field-title">Pārdevējs</div>
@@ -89,8 +108,10 @@
           <v-list-item title="Tel.nr" :subtitle="r['Tel.nr'] || ''" />
           <v-list-item title="Produkta tips:" :subtitle="r['Komentārs, kas nepieciešams klientam'] || ''" /> -->
           <!-- class="clamp" style="--clamp: 6"  -->
-          <v-list-item v-if="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']" title="Komentārs:">
-<!--   :subtitle="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']" -->
+          
+          <!-- v-if="r['Pārdevēja Komentārs , par klienta iespējamajiem laikiem']" -->
+          <v-list-item  title="Komentārs:" >
+  
               <template #subtitle>
                 <v-textarea
                                   v-model="commentDraft"
@@ -151,10 +172,10 @@
                   Apstiprināt
                 </v-btn> -->
               </div>
-              <!-- <div class="mt-1" v-if="selectedTime">
+              <div class="mt-1" v-if="selectedTime">
                 <v-chip size="x-small" label color="primary">{{ selectedTime }}</v-chip>
                 <span class="ml-2 text-caption text-medium-emphasis">(priekšskatījums)</span>
-              </div> -->
+              </div>
             </template>
           </v-list-item>
 
@@ -355,11 +376,34 @@ export default {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;      /* <-- never stack */
-  white-space: nowrap; 
+  /* flex-wrap: nowrap;      /* <-- never stack */
+
   /* flex-wrap: wrap;       allows wrapping on very narrow widths */
 }
+/*   white-space: nowrap;  */ 
+/* Desktop: row */
+@media (min-width: 960px) {
+  .header-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+  .header-actions :deep(.v-btn) {
+    flex: 0 0 auto;
+    min-width: auto;
+  }
+}
 
+/* Mobile: stack vertically, full-width buttons */
+@media (max-width: 959.98px) {           /* Vuetify md breakpoint */
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-actions :deep(.v-btn) {
+    width: 100%;
+    min-width: 0;
+  }
+}
 
 .comment-subtitle {
   line-height: 1.25rem;

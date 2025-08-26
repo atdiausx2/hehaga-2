@@ -11,9 +11,9 @@
         v-if="!r['Apsekošanas Laiks']"
         @click="$emit('confirm')"
       >
-        Apstiprināt
+        Apst.
       </v-btn>
-
+<!-- iprināt -->
       <v-btn
         variant="tonal"
         color="error"
@@ -21,17 +21,29 @@
         v-if="r && r['Apsekošanas Laiks']"
         @click="$emit('cancelTime')"
       >
-        ATCELT ŠO LAIKU
+        Atc. Laiku
       </v-btn>
-
+<!-- ELT ŠO LAIKU -->
       <v-btn
         variant="tonal"
         color="error"
         size="small"
         @click="$emit('remove')"
       >
-        Dzēst Objektu
+        Dzēst Ob.
       </v-btn>
+<!-- jektu -->
+      <v-btn
+      variant="tonal"
+      color="error"
+      size="small"
+      :href="buildJotformUrl(r)"
+      target="_blank"
+      rel="noopener"
+    >
+      Aizpildīt
+    </v-btn>
+      
     </div>
 
 
@@ -75,19 +87,32 @@
     </v-col>
 
   <v-col cols="6">
-  <div class="field">
-    <div class="field-title">Tel.nr</div>
-    <button
-      class="field-sub copyable"
-      type="button"
-      :aria-label="`Nokopēt tālruņa numuru ${r['Tel.nr'] || ''}`"
-      @click="copyValue(r['Tel.nr'] || '', 'Tālruņa numurs')"
-    >
-      <span class="truncate-wrap">{{ r['Tel.nr'] || '' }}</span>
-      <v-icon size="14" icon="mdi-content-copy" class="ml-1" />
-    </button>
-  </div>
-</v-col>
+    <div class="field">
+      <div class="field-title">Tel.nr</div>
+      <button
+        class="field-sub copyable"
+        type="button"
+        :aria-label="`Nokopēt tālruņa numuru ${r['Tel.nr'] || ''}`"
+        @click="copyValue(r['Tel.nr'] || '', 'Tālruņa numurs')"
+      >
+        <span class="truncate-wrap">{{ r['Tel.nr'] || '' }}</span>
+        <v-icon size="14" icon="mdi-content-copy" class="ml-1" />
+      </button>
+
+      <!-- Call button -->
+      <v-btn
+        v-if="telHref(r['Tel.nr'])"
+        :href="telHref(r['Tel.nr'])"
+        size="x-small"
+        variant="text"
+        class="ml-2"
+        :aria-label="`Zvanīt ${cleanPhone(r['Tel.nr'])}`"
+        @click.stop
+      >
+        <v-icon size="16" icon="mdi-phone" class="mr-1" />
+      </v-btn>
+    </div>
+  </v-col>
 
 
     <!-- <v-col cols="6">
@@ -314,6 +339,32 @@ export default {
       this.copySnack = true;
     },
 
+    buildJotformUrl(row) {
+    const base = 'https://form.jotform.com/Sungolv/apsekoanas-veidlapa';
+    const params = new URLSearchParams({
+      formuAizpildija41: 'siltumsukni@sungo.lv',
+      adrese: row?.Adrese || '',
+      talrunis: row?.['Tel.nr'] || '',
+      vizitesTemats: 'Siltumsūknis',
+      klients: row?.['Klienta vārds, uzvārds'] || ''
+    });
+    return `${base}?${params.toString()}`;
+  },
+
+
+    cleanPhone(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s) return '';
+    // keep digits and leading plus; convert leading 00 -> +
+    let cleaned = s.replace(/[^\d+]/g, '');
+    cleaned = cleaned.replace(/^00/, '+');
+    return cleaned;
+  },
+    telHref(raw) {
+      const p = this.cleanPhone(raw);
+      return p ? `tel:${p}` : null;
+    },
+
 
     parseTime(s) {
       if (!s || typeof s !== 'string') return null;
@@ -359,6 +410,13 @@ export default {
 
   <style scoped>
 /*   min-height: calc(1.25rem * 4);        /* reserve 4 lines when present */ 
+
+.phone-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap; /* wraps nicely on small widths */
+}
 
 .card-header {
   /* keep it tidy and prevent wrap jitter */

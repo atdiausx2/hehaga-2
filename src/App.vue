@@ -560,13 +560,17 @@ function regionOfDistrict(d){
 
         // console.log(`within region? ${withinScheduledRegion} , ${r.Adrese}, region ${r.region}, scheduled date ${r['Apsekošanas Datums']}, is scheduled today ${isScheduledToday}`);
         
-
-        const color = isScheduledToday ? 'green' : 'red';
+        const color = isScheduledToday
+      ? 'green'
+      : (r['Komentārs, kas nepieciešams klientam']?.includes('dens')
+          ? 'blue'
+          : 'orange');
+        // const color = isScheduledToday ?  'green' :  'red';
         //  (withinScheduledRegion ? 'red' : null);
 
         if (!color) continue;
 
-        const hex = color === 'green' ? '#1e8e3e' : '#d93025'; // pick any greens/reds you like
+        const hex = color === 'green' ? '#1e8e3e' : color === 'red'?  '#d93025' : color === 'blue' ? '#0000FF' : '#FFA500'; // pick any greens/reds you like
 
         const m = new google.maps.Marker({
         position: loc,

@@ -1,5 +1,6 @@
 <template>
-    <v-card v-if="r" rounded="xl" elevation="6" max-width="380" class="info-card">
+  <v-card v-if="r" rounded="xl" elevation="6" class="info-card">
+    <!-- <v-card v-if="r" rounded="xl" elevation="6" max-width="380" class="info-card"> -->
       <v-card-title class="d-flex align-center justify-space-between">
         <!-- <span>Vizītes dati</span> -->
         <span class="header-title">Vizītes dati</span>
